@@ -73,6 +73,12 @@ public class JdbcInputFormat extends RichInputFormat {
 
     protected transient ResultSet resultSet;
 
+    protected transient long currentOffset;
+
+    protected transient InputSplit currentInputSplit;
+
+    protected int pageSize = 5000;
+
     protected boolean hasNext;
 
     protected Object[][] parameterValues;
@@ -109,32 +115,39 @@ public class JdbcInputFormat extends RichInputFormat {
                 dbConn.setAutoCommit(false);
             }
 
-            statement = dbConn.prepareStatement(queryTemplate, resultSetType, resultSetConcurrency);
-
-            if (inputSplit != null && parameterValues != null) {
-                for (int i = 0; i < parameterValues[inputSplit.getSplitNumber()].length; i++) {
-                    Object param = parameterValues[inputSplit.getSplitNumber()][i];
-                    DBUtil.setParameterValue(param,statement,i);
-                }
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug(String.format("Executing '%s' with parameters %s", queryTemplate, Arrays.deepToString(parameterValues[inputSplit.getSplitNumber()])));
-                }
-            }
-
-            statement.setFetchSize(fetchSize);
-            statement.setQueryTimeout(queryTimeOut);
-            resultSet = statement.executeQuery();
-            hasNext = resultSet.next();
-            columnCount = resultSet.getMetaData().getColumnCount();
-
             if(descColumnTypeList == null) {
                 descColumnTypeList = DBUtil.analyzeTable(dbConn,databaseInterface,table,column);
             }
+
+            currentInputSplit = inputSplit;
+            currentOffset = 0;
+            openNextPage();
         } catch (SQLException se) {
             throw new IllegalArgumentException("open() failed." + se.getMessage(), se);
         }
 
         LOG.info("JdbcInputFormat[" + jobName + "]open: end");
+    }
+
+    public void openNextPage() throws SQLException{
+        // TODO get query sql
+        statement = dbConn.prepareStatement(queryTemplate, resultSetType, resultSetConcurrency);
+
+        if (currentInputSplit != null && parameterValues != null) {
+            for (int i = 0; i < parameterValues[currentInputSplit.getSplitNumber()].length; i++) {
+                Object param = parameterValues[currentInputSplit.getSplitNumber()][i];
+                DBUtil.setParameterValue(param,statement,i);
+            }
+            if (LOG.isDebugEnabled()) {
+                LOG.debug(String.format("Executing '%s' with parameters %s", queryTemplate, Arrays.deepToString(parameterValues[currentInputSplit.getSplitNumber()])));
+            }
+        }
+
+        statement.setFetchSize(fetchSize);
+        statement.setQueryTimeout(queryTimeOut);
+        resultSet = statement.executeQuery();
+        columnCount = resultSet.getMetaData().getColumnCount();
+        hasNext = resultSet.next();
     }
 
 
@@ -164,6 +177,15 @@ public class JdbcInputFormat extends RichInputFormat {
 
     @Override
     public boolean reachedEnd() throws IOException {
+        if(!hasNext){
+            try{
+                currentOffset += pageSize;
+                openNextPage();
+            }catch (SQLException e){
+                throw new IllegalArgumentException("open() failed." + e.getMessage(), e);
+            }
+        }
+
         return !hasNext;
     }
 
