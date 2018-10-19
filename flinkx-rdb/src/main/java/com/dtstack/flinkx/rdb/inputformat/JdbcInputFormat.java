@@ -22,7 +22,6 @@ import com.dtstack.flinkx.rdb.DatabaseInterface;
 import com.dtstack.flinkx.rdb.type.TypeConverterInterface;
 import com.dtstack.flinkx.rdb.util.DBUtil;
 import com.dtstack.flinkx.util.ClassUtil;
-import com.dtstack.flinkx.util.DateUtil;
 import org.apache.flink.api.common.io.DefaultInputSplitAssigner;
 import org.apache.flink.api.common.io.statistics.BaseStatistics;
 import org.apache.flink.configuration.Configuration;
@@ -31,9 +30,7 @@ import org.apache.flink.core.io.InputSplit;
 import org.apache.flink.core.io.InputSplitAssigner;
 import org.apache.flink.types.Row;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.sql.*;
-import java.sql.Date;
 import java.util.*;
 
 import com.dtstack.flinkx.inputformat.RichInputFormat;
@@ -130,9 +127,8 @@ public class JdbcInputFormat extends RichInputFormat {
     }
 
     public void openNextPage() throws SQLException{
-        // TODO get query sql
         String querySql = DBUtil.buildPageQuerySql(queryTemplate,databaseInterface.getDatabaseType(),currentOffset,pageSize);
-        statement = dbConn.prepareStatement(queryTemplate, resultSetType, resultSetConcurrency);
+        statement = dbConn.prepareStatement(querySql, resultSetType, resultSetConcurrency);
 
         if (currentInputSplit != null && parameterValues != null) {
             for (int i = 0; i < parameterValues[currentInputSplit.getSplitNumber()].length; i++) {
