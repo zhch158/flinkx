@@ -131,6 +131,7 @@ public class JdbcInputFormat extends RichInputFormat {
 
     public void openNextPage() throws SQLException{
         // TODO get query sql
+        String querySql = DBUtil.buildPageQuerySql(queryTemplate,databaseInterface.getDatabaseType(),currentOffset,pageSize);
         statement = dbConn.prepareStatement(queryTemplate, resultSetType, resultSetConcurrency);
 
         if (currentInputSplit != null && parameterValues != null) {

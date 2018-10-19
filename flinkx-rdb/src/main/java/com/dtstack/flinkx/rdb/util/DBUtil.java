@@ -355,4 +355,18 @@ public class DBUtil {
 
         return dbUrl;
     }
+
+    public static String buildPageQuerySql(String sql,String dataBaseType,long offset,long pageSize){
+        if (dataBaseType.equals("mysql")){
+            return sql + " limit " + offset + "," + pageSize;
+        } else if(dataBaseType.equals("oracle")){
+            return sql;
+        } else if(dataBaseType.equals("postgresql")){
+            return sql;
+        } else if(dataBaseType.equals("oracle")){
+            return sql;
+        } else {
+            return sql;
+        }
+    }
 }
