@@ -73,6 +73,10 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
 
     private transient ResultSet currentResultSet;
 
+    protected transient long currentOffset;
+
+    protected int pageSize = 5000;
+
     protected String username;
 
     protected String password;
@@ -104,7 +108,8 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
         try{
             ClassUtil.forName(driverName, getClass().getClassLoader());
             sourceList = ((DistributedJdbcInputSplit) inputSplit).getSourceList();
-            openNextSource();
+            hasNext = false;
+            openNextPage();
         }catch (Exception e){
             throw new IllegalArgumentException("open() failed." + e.getMessage(), e);
         }
@@ -112,22 +117,14 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
         LOG.info("JdbcInputFormat[" + jobName + "]open: end");
     }
 
-    private void openNextSource() throws SQLException{
-        for (DataSource dataSource : sourceList) {
-            if(!dataSource.isFinished()){
-                sourceIndex = sourceList.indexOf(dataSource);
-                currentSource = dataSource;
-                break;
-            }
+    private void openNextPage() throws SQLException{
+
+        if(currentSource == null){
+            openNextSource();
         }
 
-        if (currentSource == null){
-            hasNext = false;
-            return;
-        }
-
-        currentConn = DBUtil.getConnection(currentSource.getJdbcUrl(), currentSource.getUserName(), currentSource.getPassword());
         String queryTemplate = DBUtil.getQuerySql(databaseInterface,currentSource.getTable(),column,splitKey,where,currentSource.isSplitByKey());
+        queryTemplate = DBUtil.buildPageQuerySql(queryTemplate,databaseInterface.getDatabaseType(),currentOffset,pageSize);
         currentStatement = currentConn.prepareStatement(queryTemplate, resultSetType, resultSetConcurrency);
 
         if (currentSource.isSplitByKey()){
@@ -145,8 +142,33 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
         currentStatement.setFetchSize(fetchSize);
         currentStatement.setQueryTimeout(queryTimeOut);
         currentResultSet = currentStatement.executeQuery();
-        hasNext = currentResultSet.next();
         columnCount = currentResultSet.getMetaData().getColumnCount();
+        hasNext = currentResultSet.next();
+
+        if (!hasNext){
+            closeCurrentSource();
+            if(sourceIndex < sourceList.size() -1){
+                openNextPage();
+            }
+        }
+    }
+
+    private void openNextSource() throws SQLException{
+        for (DataSource dataSource : sourceList) {
+            if(!dataSource.isFinished()){
+                sourceIndex = sourceList.indexOf(dataSource);
+                currentSource = dataSource;
+                break;
+            }
+        }
+
+        if (currentSource == null){
+            hasNext = false;
+            return;
+        }
+
+        currentConn = DBUtil.getConnection(currentSource.getJdbcUrl(), currentSource.getUserName(), currentSource.getPassword());
+
         if(descColumnTypeList == null) {
             descColumnTypeList = DBUtil.analyzeTable(currentConn,databaseInterface,currentSource.getTable(),column);
         }
@@ -178,6 +200,7 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
         if(sourceList.size() >= sourceIndex + 1){
             sourceList.get(sourceIndex).setFinished(true);
             currentSource = null;
+            currentOffset = 0;
         }
     }
 
@@ -241,8 +264,8 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
     public boolean reachedEnd() throws IOException {
         if (!hasNext){
             try{
-                closeCurrentSource();
-                openNextSource();
+                currentOffset += pageSize;
+                openNextPage();
             }catch (SQLException e){
                 throw new IOException("open source error:" + currentSource.getJdbcUrl(),e);
             }
