@@ -66,15 +66,9 @@ public class JdbcInputFormat extends RichInputFormat {
 
     protected transient Connection dbConn;
 
-    protected transient PreparedStatement statement;
+    protected transient Statement statement;
 
     protected transient ResultSet resultSet;
-
-    protected transient long currentOffset;
-
-    protected transient InputSplit currentInputSplit;
-
-    protected int pageSize = 5000;
 
     protected boolean hasNext;
 
@@ -107,44 +101,39 @@ public class JdbcInputFormat extends RichInputFormat {
         try {
             ClassUtil.forName(drivername, getClass().getClassLoader());
             dbConn = DBUtil.getConnection(dbURL, username, password);
+            dbConn.setAutoCommit(false);
 
-            if(drivername.equalsIgnoreCase("org.postgresql.Driver")){
-                dbConn.setAutoCommit(false);
+            Statement statement = dbConn.createStatement(resultSetType, resultSetConcurrency);
+
+            if (inputSplit != null && parameterValues != null) {
+                String n = parameterValues[inputSplit.getSplitNumber()][0].toString();
+                String m = parameterValues[inputSplit.getSplitNumber()][1].toString();
+                queryTemplate = queryTemplate.replace("${N}",n).replace("${M}",m);
+
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug(String.format("Executing '%s' with parameters %s", queryTemplate, Arrays.deepToString(parameterValues[inputSplit.getSplitNumber()])));
+                }
             }
+
+            if(databaseInterface.getDatabaseType().equals("mysql")){
+                statement.setFetchSize(Integer.MIN_VALUE);
+            } else {
+                statement.setFetchSize(fetchSize);
+            }
+
+            statement.setQueryTimeout(queryTimeOut);
+            resultSet = statement.executeQuery(queryTemplate);
+            hasNext = resultSet.next();
+            columnCount = resultSet.getMetaData().getColumnCount();
 
             if(descColumnTypeList == null) {
-                descColumnTypeList = DBUtil.analyzeTable(dbConn,databaseInterface,table,column);
+                descColumnTypeList = DBUtil.analyzeTable(dbURL, username, password,databaseInterface,table,column);
             }
-
-            currentInputSplit = inputSplit;
-            currentOffset = 0;
-            openNextPage();
         } catch (SQLException se) {
             throw new IllegalArgumentException("open() failed." + se.getMessage(), se);
         }
 
         LOG.info("JdbcInputFormat[" + jobName + "]open: end");
-    }
-
-    public void openNextPage() throws SQLException{
-        String querySql = DBUtil.buildPageQuerySql(queryTemplate,databaseInterface.getDatabaseType(),currentOffset,pageSize);
-        statement = dbConn.prepareStatement(querySql, resultSetType, resultSetConcurrency);
-
-        if (currentInputSplit != null && parameterValues != null) {
-            for (int i = 0; i < parameterValues[currentInputSplit.getSplitNumber()].length; i++) {
-                Object param = parameterValues[currentInputSplit.getSplitNumber()][i];
-                DBUtil.setParameterValue(param,statement,i);
-            }
-            if (LOG.isDebugEnabled()) {
-                LOG.debug(String.format("Executing '%s' with parameters %s", queryTemplate, Arrays.deepToString(parameterValues[currentInputSplit.getSplitNumber()])));
-            }
-        }
-
-        statement.setFetchSize(fetchSize);
-        statement.setQueryTimeout(queryTimeOut);
-        resultSet = statement.executeQuery();
-        columnCount = resultSet.getMetaData().getColumnCount();
-        hasNext = resultSet.next();
     }
 
 
@@ -174,15 +163,6 @@ public class JdbcInputFormat extends RichInputFormat {
 
     @Override
     public boolean reachedEnd() throws IOException {
-        if(!hasNext){
-            try{
-                currentOffset += pageSize;
-                openNextPage();
-            }catch (SQLException e){
-                throw new IllegalArgumentException("open() failed." + e.getMessage(), e);
-            }
-        }
-
         return !hasNext;
     }
 
