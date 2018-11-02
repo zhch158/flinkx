@@ -46,7 +46,7 @@ public abstract class RichOutputFormatBuilder {
         format.setSrcFieldNames(srcCols);
     }
 
-    public void setErrors(int errors) {
+    public void setErrors(Integer errors) {
         format.errors = errors;
     }
 
