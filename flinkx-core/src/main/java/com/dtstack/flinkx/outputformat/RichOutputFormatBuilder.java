@@ -50,7 +50,7 @@ public abstract class RichOutputFormatBuilder {
         format.errors = errors;
     }
 
-    public void setErrorRatio(double errorRatio) {
+    public void setErrorRatio(Double errorRatio) {
         format.errorRatio = errorRatio;
     }
 

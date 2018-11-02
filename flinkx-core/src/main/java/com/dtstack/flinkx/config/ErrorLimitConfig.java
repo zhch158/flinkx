@@ -48,7 +48,8 @@ public class ErrorLimitConfig extends AbstractConfig {
     }
 
     public Integer getRecord() {
-        return (Integer) getVal(KEY_ERROR_RECORD_LIMIT);
+        int record = getIntVal(KEY_ERROR_RECORD_LIMIT,-1);
+        return record == -1 ? null : record;
     }
 
     public void setRecord(Integer record) {
