@@ -59,6 +59,8 @@ public class CarbonOutputFormat extends RichOutputFormat {
 
     private int batchSize = 2000;
 
+    protected boolean overwrite = false;
+
     @Override
     protected void openInternal(int taskNumber, int numTasks) throws IOException {
         try {
@@ -181,7 +183,7 @@ public class CarbonOutputFormat extends RichOutputFormat {
 
     private void initColIndex() {
         for(String col : fullColumn) {
-            int index = fullColumn.indexOf(col);
+            int index = column.indexOf(col);
             if(index != -1) {
                 indices.add(index);
             }

@@ -37,6 +37,14 @@ public class CarbondataOutputFormatBuilder extends RichOutputFormatBuilder {
         format.column = column;
     }
 
+    public void setMode(String mode) {
+        if(mode.equalsIgnoreCase("insert")) {
+            format.overwrite = false;
+        } else {
+            format.overwrite = true;
+        }
+    }
+
     @Override
     protected void checkFormat() {
         if (format.username == null) {

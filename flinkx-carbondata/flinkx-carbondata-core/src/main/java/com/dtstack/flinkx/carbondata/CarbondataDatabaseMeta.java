@@ -63,7 +63,7 @@ public class CarbondataDatabaseMeta extends BaseDatabaseMeta {
 
     @Override
     public String getSplitFilter(String columnName) {
-        return String.format("mod(%s, ?) = ?", getStartQuote() + columnName + getEndQuote());
+        return String.format("pmod(%s, ${N}) = ${M}", getStartQuote() + columnName + getEndQuote());
     }
 
 
