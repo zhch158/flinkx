@@ -63,32 +63,8 @@ public class CarbondataDatabaseMeta extends BaseDatabaseMeta {
 
     @Override
     public String getSplitFilter(String columnName) {
-        return String.format("mod(%s, ?) = ?", getStartQuote() + columnName + getEndQuote());
+        return String.format("pmod(%s, ${N}) = ${M}", getStartQuote() + columnName + getEndQuote());
     }
-
-
-    @Override
-    public String getReplaceStatement(List<String> column, List<String> fullColumn, String table, Map<String,List<String>> updateKey) {
-        return "INSERT OVERWRITE " + quoteTable(table)
-                + " (" + quoteColumns(column) + ") values "
-                + makeValues(column.size());
-    }
-
-    @Override
-    public String getMultiInsertStatement(List<String> column, String table, int batchSize) {
-        return "INSERT INTO " + quoteTable(table)
-                + " (" + quoteColumns(column) + ") values "
-                + makeMultipleValues(column.size(), batchSize);
-    }
-
-    @Override
-    public String getMultiReplaceStatement(List<String> column, List<String> fullColumn, String table, int batchSize, Map<String,List<String>> updateKey) {
-        return "INSERT OVERWRITE " + quoteTable(table)
-                + " (" + quoteColumns(column) + ") values "
-                + makeMultipleValues(column.size(), batchSize);
-    }
-
-
 
 
 }
