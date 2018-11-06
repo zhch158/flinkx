@@ -19,6 +19,12 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 
+/**
+ * OutputFormat for writing data to carbondata via jdbc
+ *
+ * Company: www.dtstack.com
+ * @author huyifan_zju@163.com
+ */
 public class CarbonOutputFormat extends RichOutputFormat {
 
     protected String username;
@@ -61,11 +67,18 @@ public class CarbonOutputFormat extends RichOutputFormat {
 
     protected boolean overwrite = false;
 
+    protected List<String> preSql;
+
+    protected List<String> postSql;
+
     @Override
     protected void openInternal(int taskNumber, int numTasks) throws IOException {
         try {
             ClassUtil.forName(DRIVER_CLASS, getClass().getClassLoader());
             dbConn = DBUtil.getConnection(dbURL, username, password);
+
+            initDynamicSettings();
+
             analyzeTable();
             lowcaseList(column);
             lowcaseList(fullColumn);
@@ -82,6 +95,14 @@ public class CarbonOutputFormat extends RichOutputFormat {
         } catch (SQLException sqe) {
             throw new IllegalArgumentException("open() failed.", sqe);
         }
+    }
+
+    private void initDynamicSettings() throws SQLException {
+        Statement stmt = dbConn.createStatement();
+        stmt.execute("set hive.exec.dynamic.partition=true");
+        stmt.execute("set hive.exec.dynamic.partition.mode=nonstrict");
+        stmt.execute("set hive.exec.max.dynamic.partitions=500000");
+        stmt.execute("set hive.exec.max.created.files=150000");
     }
 
     @Override
@@ -233,6 +254,31 @@ public class CarbonOutputFormat extends RichOutputFormat {
         if(taskNumber != 0) {
             DBUtil.closeDBResources(null,null,dbConn);
             dbConn = null;
+        }
+    }
+
+    @Override
+    protected boolean needWaitBeforeWriteRecords() {
+        return  preSql != null && preSql.size() != 0;
+    }
+
+    @Override
+    protected void beforeWriteRecords()  {
+        if(taskNumber == 0) {
+            DBUtil.executeOneByOne(dbConn, preSql);
+        }
+    }
+
+    @Override
+    protected boolean needWaitBeforeCloseInternal() {
+        return postSql != null && postSql.size() != 0;
+    }
+
+    @Override
+    protected void beforeCloseInternal() {
+        // 执行postsql
+        if(taskNumber == 0) {
+            DBUtil.executeOneByOne(dbConn, postSql);
         }
     }
 }

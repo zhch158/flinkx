@@ -35,6 +35,8 @@ public class CarbondataWriter extends DataWriter {
     protected List<String> column;
     protected String table;
     protected int batchSize;
+    protected List<String> preSql;
+    protected List<String> postSql;
 
 
     private static final int DEFAULT_BATCH_SIZE = 1024;
@@ -49,6 +51,8 @@ public class CarbondataWriter extends DataWriter {
         table = writerConfig.getParameter().getConnection().get(0).getTable().get(0);
         batchSize = writerConfig.getParameter().getIntVal(KEY_BATCH_SIZE, DEFAULT_BATCH_SIZE);
         column = (List<String>) writerConfig.getParameter().getColumn();
+        preSql = (List<String>) writerConfig.getParameter().getVal(KEY_PRE_SQL);
+        postSql = (List<String>) writerConfig.getParameter().getVal(KEY_POST_SQL);
 
     }
 
@@ -71,6 +75,8 @@ public class CarbondataWriter extends DataWriter {
         builder.setSrcCols(srcCols);
         builder.setTable(table);
         builder.setColumn(column);
+        builder.setPreSql(preSql);
+        builder.setPostSql(postSql);
 
         OutputFormatSinkFunction sinkFunction = new OutputFormatSinkFunction(builder.finish());
         DataStreamSink<?> dataStreamSink = dataSet.addSink(sinkFunction);
