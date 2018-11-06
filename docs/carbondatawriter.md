@@ -143,3 +143,30 @@
 	* 必选：否 <br />
 
 	* 默认值：无 <br />
+	
+	
+	
+## 3. 数据类型
+
+支持如下数据类型
+
+* SMALLINT
+* INT/INTEGER
+* BIGINT
+* DOUBLE
+* DECIMAL
+* FLOAT
+* BYTE
+* BOOLEAN
+* STRING
+* CHAR
+* VARCHAR
+* DATE
+* TIMESTAMP
+
+
+不支持如下数据类型
+
+* arrays: ARRAY<data_type>
+* structs: STRUCT<col_name : data_type COMMENT col_comment, ...>
+* maps: MAP<primitive_type, data_type>
