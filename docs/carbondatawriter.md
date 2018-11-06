@@ -127,3 +127,46 @@
 	* 必选：否 <br />
 
 	* 默认值：1024 <br />
+
+* **preSql**
+
+	* 描述：写入数据到目的表前，会先执行这里的一组标准语句。
+
+	* 必选：否 <br />
+
+	* 默认值：无 <br />
+
+* **postSql**
+
+	* 描述：写入数据到目的表后，会执行这里的一组标准语句。
+
+	* 必选：否 <br />
+
+	* 默认值：无 <br />
+	
+	
+	
+## 3. 数据类型
+
+支持如下数据类型
+
+* SMALLINT
+* INT/INTEGER
+* BIGINT
+* DOUBLE
+* DECIMAL
+* FLOAT
+* BYTE
+* BOOLEAN
+* STRING
+* CHAR
+* VARCHAR
+* DATE
+* TIMESTAMP
+
+
+不支持如下数据类型
+
+* arrays: ARRAY<data_type>
+* structs: STRUCT<col_name : data_type COMMENT col_comment, ...>
+* maps: MAP<primitive_type, data_type>

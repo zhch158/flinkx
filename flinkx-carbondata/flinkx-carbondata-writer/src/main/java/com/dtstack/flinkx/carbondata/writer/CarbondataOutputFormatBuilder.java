@@ -37,12 +37,12 @@ public class CarbondataOutputFormatBuilder extends RichOutputFormatBuilder {
         format.column = column;
     }
 
-    public void setMode(String mode) {
-        if(mode.equalsIgnoreCase("insert")) {
-            format.overwrite = false;
-        } else {
-            format.overwrite = true;
-        }
+    public void setPreSql(List<String> preSql) {
+        format.preSql = preSql;
+    }
+
+    public void setPostSql(List<String> postSql) {
+        format.postSql = postSql;
     }
 
     @Override
