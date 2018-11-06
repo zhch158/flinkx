@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -53,13 +54,14 @@ public class HdfsParquetInputFormat extends HdfsInputFormat {
 
     private transient int currenFileIndex = 0;
 
-    private GroupReadSupport readSupport = new GroupReadSupport();
+    private GroupReadSupport readSupport;
 
     private SimpleDateFormat sdf = new SimpleDateFormat("");
 
     @Override
     protected void configureAnythingElse() {
         try {
+            readSupport = new GroupReadSupport();
             allFilePaths = getAllPartitionPath(inputPath);
         } catch (Exception e){
             throw new RuntimeException(e);
@@ -72,7 +74,7 @@ public class HdfsParquetInputFormat extends HdfsInputFormat {
     }
 
     private boolean nextLine() throws IOException{
-        if (currentFileReader == null && currenFileIndex <= currentSplitFilePaths.size()){
+        if (currentFileReader == null && currenFileIndex <= currentSplitFilePaths.size()-1){
             nextFile();
         }
 
@@ -167,14 +169,14 @@ public class HdfsParquetInputFormat extends HdfsInputFormat {
     }
 
     @Override
-    public InputSplit[] createInputSplits(int minNumSplits) throws IOException {
+    public HdfsParquetSplit[] createInputSplits(int minNumSplits) throws IOException {
         if(allFilePaths != null && allFilePaths.size() > 0){
             int step = allFilePaths.size() / minNumSplits;
             HdfsParquetSplit[] splits = new HdfsParquetSplit[minNumSplits];
             for (int i = 0; i < minNumSplits; i++) {
                 int start = i * step;
                 int end = (i+1) * step > allFilePaths.size() ? allFilePaths.size() : (i+1) * step;
-                splits[i] = new HdfsParquetSplit(i,allFilePaths.subList(start,end));
+                splits[i] = new HdfsParquetSplit(i,new ArrayList<>(allFilePaths.subList(start,end)));
             }
 
             return splits;
