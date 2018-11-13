@@ -74,6 +74,13 @@ public class PostgresqlDatabaseMeta extends BaseDatabaseMeta {
     }
 
     @Override
+    public String getMultiInsertStatement(List<String> column, String table, int batchSize) {
+        return "INSERT INTO " + quoteTable(table)
+                + " (" + quoteColumns(column) + ") values "
+                + makeMultipleValues(column.size(), batchSize);
+    }
+
+    @Override
     public String getMultiReplaceStatement(List<String> column, List<String> fullColumn, String table, int batchSize, Map<String,List<String>> updateKey) {
         return "INSERT INTO " + quoteTable(table)
                 + " (" + quoteColumns(column) + ") VALUES "
