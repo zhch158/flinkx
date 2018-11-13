@@ -89,8 +89,6 @@ public class JdbcOutputFormat extends RichOutputFormat {
 
     private final static String TIMESTAMP_REGEX = "(?i)timestamp";
 
-    private final static int SQL_SERVER_MAX_PARAMETER_MARKER = 2000;
-
     protected PreparedStatement prepareSingleTemplates() throws SQLException {
         if(fullColumn == null || fullColumn.size() == 0) {
             fullColumn = column;
@@ -116,15 +114,6 @@ public class JdbcOutputFormat extends RichOutputFormat {
     protected PreparedStatement prepareMultipleTemplates(int batchSize) throws SQLException {
         if(fullColumn == null || fullColumn.size() == 0) {
             fullColumn = column;
-        }
-
-        /**
-         * fix bug:Prepared or callable statement has more than 2000 parameter markers
-         */
-        if(databaseInterface.getDatabaseType().equals("sqlserver")){
-            if(column.size() * batchSize >= SQL_SERVER_MAX_PARAMETER_MARKER){
-                batchSize = SQL_SERVER_MAX_PARAMETER_MARKER / column.size();
-            }
         }
 
         String multipleSql = null;
@@ -230,7 +219,7 @@ public class JdbcOutputFormat extends RichOutputFormat {
     @Override
     protected void writeMultipleRecordsInternal() throws Exception {
         PreparedStatement upload;
-        if(rows.size() == batchInterval) {
+        if(rows.size() == batchInterval && !databaseInterface.getDatabaseType().equals("sqlserver")) {
             upload = multipleUpload;
         } else {
             upload = prepareMultipleTemplates(rows.size());

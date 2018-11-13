@@ -60,6 +60,8 @@ public class JdbcDataWriter extends DataWriter {
 
     private static final int DEFAULT_BATCH_SIZE = 1024;
 
+    private final static int SQL_SERVER_MAX_PARAMETER_MARKER = 2000;
+
     public void setTypeConverterInterface(TypeConverterInterface typeConverter) {
         this.typeConverter = typeConverter;
     }
@@ -125,7 +127,7 @@ public class JdbcDataWriter extends DataWriter {
         builder.setDBUrl(dbUrl);
         builder.setUsername(username);
         builder.setPassword(password);
-        builder.setBatchInterval(batchSize);
+        builder.setBatchInterval(getBatchSize());
         builder.setMonitorUrls(monitorUrls);
         builder.setPreSql(preSql);
         builder.setPostSql(postSql);
@@ -147,6 +149,19 @@ public class JdbcDataWriter extends DataWriter {
         String sinkName = (databaseInterface.getDatabaseType() + "writer").toLowerCase();
         dataStreamSink.name(sinkName);
         return dataStreamSink;
+    }
+
+    /**
+     * fix bug:Prepared or callable statement has more than 2000 parameter markers
+     */
+    private int getBatchSize(){
+        if(databaseInterface.getDatabaseType().equals("sqlserver")){
+            if(column.size() * batchSize >= SQL_SERVER_MAX_PARAMETER_MARKER){
+                batchSize = SQL_SERVER_MAX_PARAMETER_MARKER / column.size();
+            }
+        }
+
+        return batchSize;
     }
 
     protected Connection getConnection() {
