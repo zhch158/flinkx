@@ -169,7 +169,7 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
                 return null;
             }
 
-            DBUtil.getRow(currentSource.getJdbcUrl(),row,descColumnTypeList,currentResultSet,typeConverter);
+            DBUtil.getRow(databaseInterface.getDatabaseType(),row,descColumnTypeList,currentResultSet,typeConverter);
 
             hasNext = currentResultSet.next();
             return row;

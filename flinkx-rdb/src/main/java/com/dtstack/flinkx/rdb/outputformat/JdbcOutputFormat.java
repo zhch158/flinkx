@@ -17,6 +17,8 @@
  */
 package com.dtstack.flinkx.rdb.outputformat;
 
+import com.dtstack.flinkx.enums.EDatabaseType;
+import com.dtstack.flinkx.enums.EWriteMode;
 import com.dtstack.flinkx.exception.WriteRecordException;
 import com.dtstack.flinkx.rdb.DatabaseInterface;
 import com.dtstack.flinkx.rdb.type.TypeConverterInterface;
@@ -69,7 +71,7 @@ public class JdbcOutputFormat extends RichOutputFormat {
 
     protected DatabaseInterface databaseInterface;
 
-    protected String mode = "insert";
+    protected String mode = EWriteMode.INSERT.name();
 
     protected String table;
 
@@ -95,11 +97,11 @@ public class JdbcOutputFormat extends RichOutputFormat {
         }
 
         String singleSql = null;
-        if (mode == null || mode.length() == 0 || mode.equalsIgnoreCase("INSERT")) {
+        if (EWriteMode.INSERT.name().equalsIgnoreCase(mode)) {
             singleSql = databaseInterface.getInsertStatement(column, table);
-        } else if (mode.equalsIgnoreCase("REPLACE")) {
+        } else if (EWriteMode.REPLACE.name().equalsIgnoreCase(mode)) {
             singleSql = databaseInterface.getReplaceStatement(column, fullColumn, table, updateKey);
-        } else if (mode.equalsIgnoreCase("UPDATE")) {
+        } else if (EWriteMode.UPDATE.name().equalsIgnoreCase(mode)) {
             singleSql = databaseInterface.getUpsertStatement(column, table, updateKey);
         } else {
             throw new IllegalArgumentException();
@@ -117,11 +119,11 @@ public class JdbcOutputFormat extends RichOutputFormat {
         }
 
         String multipleSql = null;
-        if (mode == null || mode.length() == 0 || mode.equalsIgnoreCase("INSERT")) {
+        if (EWriteMode.INSERT.name().equalsIgnoreCase(mode)) {
             multipleSql = databaseInterface.getMultiInsertStatement(column, table, batchSize);
-        } else if (mode.equalsIgnoreCase("REPLACE")) {
+        } else if (EWriteMode.REPLACE.name().equalsIgnoreCase(mode)) {
             multipleSql = databaseInterface.getMultiReplaceStatement(column, fullColumn, table, batchSize, updateKey);
-        } else if (mode.equalsIgnoreCase("UPDATE")) {
+        } else if (EWriteMode.UPDATE.name().equalsIgnoreCase(mode)) {
             multipleSql = databaseInterface.getMultiUpsertStatement(column, table, batchSize, updateKey);
         } else {
             throw new IllegalArgumentException();
@@ -139,8 +141,10 @@ public class JdbcOutputFormat extends RichOutputFormat {
                 fullColumn = probeFullColumns(table, dbConn);
             }
 
-            if(updateKey == null || updateKey.size() == 0) {
-                updateKey = probePrimaryKeys(table, dbConn);
+            if (!EWriteMode.INSERT.name().equalsIgnoreCase(mode)){
+                if(updateKey == null || updateKey.size() == 0) {
+                    updateKey = probePrimaryKeys(table, dbConn);
+                }
             }
 
             singleUpload = prepareSingleTemplates();
@@ -179,14 +183,14 @@ public class JdbcOutputFormat extends RichOutputFormat {
 
     private Object convertField(Row row, int index) {
         Object field = getField(row, index);
-        if(dbURL.startsWith("jdbc:oracle")) {
+        if(EDatabaseType.Oracle == databaseInterface.getDatabaseType()) {
             String type = columnType.get(index);
             if(type.equalsIgnoreCase("DATE")) {
                 field = DateUtil.columnToDate(field);
             } else if(type.equalsIgnoreCase("TIMESTAMP")){
                 field = DateUtil.columnToTimestamp(field);
             }
-        } else if(dbURL.startsWith("jdbc:postgresql")){
+        } else if(EDatabaseType.PostgreSQL == databaseInterface.getDatabaseType()){
             if(columnType != null && columnType.size() != 0) {
                 field = typeConverter.convert(field,columnType.get(index));
             }
@@ -219,7 +223,7 @@ public class JdbcOutputFormat extends RichOutputFormat {
     @Override
     protected void writeMultipleRecordsInternal() throws Exception {
         PreparedStatement upload;
-        if(rows.size() == batchInterval && !databaseInterface.getDatabaseType().equals("sqlserver")) {
+        if(rows.size() == batchInterval && EDatabaseType.SQLServer != databaseInterface.getDatabaseType()) {
             upload = multipleUpload;
         } else {
             upload = prepareMultipleTemplates(rows.size());
@@ -262,7 +266,7 @@ public class JdbcOutputFormat extends RichOutputFormat {
 
     protected List<String> probeFullColumns(String table, Connection dbConn) throws SQLException {
         String schema =null;
-        if(dbURL.startsWith("jdbc:oracle")) {
+        if(EDatabaseType.Oracle == databaseInterface.getDatabaseType()) {
             String[] parts = table.split("\\.");
             if(parts.length == 2) {
                 schema = parts[0].toUpperCase();
@@ -283,7 +287,7 @@ public class JdbcOutputFormat extends RichOutputFormat {
     protected Map<String, List<String>> probePrimaryKeys(String table, Connection dbConn) throws SQLException {
         String schema =null;
 
-        if(dbURL.startsWith("jdbc:oracle")) {
+        if(EDatabaseType.Oracle == databaseInterface.getDatabaseType()) {
             String[] parts = table.split("\\.");
             if(parts.length == 2) {
                 schema = parts[0].toUpperCase();
