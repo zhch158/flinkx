@@ -20,6 +20,7 @@ package com.dtstack.flinkx.rdb.datawriter;
 
 import com.dtstack.flinkx.config.DataTransferConfig;
 import com.dtstack.flinkx.config.WriterConfig;
+import com.dtstack.flinkx.enums.EDatabaseType;
 import com.dtstack.flinkx.rdb.DatabaseInterface;
 import com.dtstack.flinkx.rdb.outputformat.JdbcOutputFormatBuilder;
 import com.dtstack.flinkx.rdb.type.TypeConverterInterface;
@@ -89,7 +90,7 @@ public class JdbcDataWriter extends DataWriter {
                     paramMap.put(leftRight[0], leftRight[1]);
                 }
             }
-            paramMap.put("useCursorFetch", "true");
+            paramMap.put("rewriteBatchedStatements", "true");
 
             StringBuffer sb = new StringBuffer(splits[0]);
             if(paramMap.size() != 0) {
@@ -155,7 +156,7 @@ public class JdbcDataWriter extends DataWriter {
      * fix bug:Prepared or callable statement has more than 2000 parameter markers
      */
     private int getBatchSize(){
-        if(databaseInterface.getDatabaseType().equals("sqlserver")){
+        if(databaseInterface.getDatabaseType() == EDatabaseType.SQLServer){
             if(column.size() * batchSize >= SQL_SERVER_MAX_PARAMETER_MARKER){
                 batchSize = SQL_SERVER_MAX_PARAMETER_MARKER / column.size();
             }

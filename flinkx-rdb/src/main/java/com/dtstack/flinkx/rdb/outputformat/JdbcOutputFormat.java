@@ -91,6 +91,17 @@ public class JdbcOutputFormat extends RichOutputFormat {
 
     private final static String TIMESTAMP_REGEX = "(?i)timestamp";
 
+    private final static String GET_ORACLE_INDEX_SQL = "SELECT " +
+            "t.INDEX_NAME," +
+            "t.COLUMN_NAME " +
+            "FROM " +
+            "user_ind_columns t," +
+            "user_indexes i " +
+            "WHERE " +
+            "t.index_name = i.index_name " +
+            "AND i.uniqueness = 'UNIQUE' " +
+            "AND t.table_name = '%s'";
+
     protected PreparedStatement prepareSingleTemplates() throws SQLException {
         if(fullColumn == null || fullColumn.size() == 0) {
             fullColumn = column;
@@ -136,6 +147,10 @@ public class JdbcOutputFormat extends RichOutputFormat {
         try {
             ClassUtil.forName(drivername, getClass().getClassLoader());
             dbConn = DBUtil.getConnection(dbURL, username, password);
+
+            if(batchInterval > 1 && databaseInterface.getDatabaseType() != EDatabaseType.Oracle){
+                dbConn.setAutoCommit(false);
+            }
 
             if(fullColumn == null || fullColumn.size() == 0) {
                 fullColumn = probeFullColumns(table, dbConn);
@@ -240,6 +255,9 @@ public class JdbcOutputFormat extends RichOutputFormat {
         }
 
         upload.execute();
+        if(databaseInterface.getDatabaseType() != EDatabaseType.Oracle){
+            dbConn.commit();
+        }
     }
 
     private void fillUploadStmt(PreparedStatement upload, int k, Object field, String type) throws SQLException {
@@ -285,18 +303,15 @@ public class JdbcOutputFormat extends RichOutputFormat {
 
 
     protected Map<String, List<String>> probePrimaryKeys(String table, Connection dbConn) throws SQLException {
-        String schema =null;
-
-        if(EDatabaseType.Oracle == databaseInterface.getDatabaseType()) {
-            String[] parts = table.split("\\.");
-            if(parts.length == 2) {
-                schema = parts[0].toUpperCase();
-                table = parts[1];
-            }
+        Map<String, List<String>> map = new HashMap<>();
+        ResultSet rs;
+        if(EDatabaseType.Oracle == databaseInterface.getDatabaseType()){
+            PreparedStatement ps = dbConn.prepareStatement(String.format(GET_ORACLE_INDEX_SQL,table));
+            rs = ps.executeQuery();
+        } else {
+            rs = dbConn.getMetaData().getIndexInfo(null, null, table, true, false);
         }
 
-        Map<String, List<String>> map = new HashMap<>();
-        ResultSet rs = dbConn.getMetaData().getIndexInfo(null, schema, table, true, false);
         while(rs.next()) {
             String indexName = rs.getString("INDEX_NAME");
             if(!map.containsKey(indexName)) {

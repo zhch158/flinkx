@@ -115,7 +115,7 @@ public class JdbcInputFormat extends RichInputFormat {
                 }
             }
 
-            if(EDatabaseType.MySQL != databaseInterface.getDatabaseType()){
+            if(EDatabaseType.MySQL == databaseInterface.getDatabaseType()){
                 statement.setFetchSize(Integer.MIN_VALUE);
             } else {
                 statement.setFetchSize(fetchSize);
@@ -190,6 +190,14 @@ public class JdbcInputFormat extends RichInputFormat {
 
     @Override
     public void closeInternal() throws IOException {
+        try {
+            if(dbConn != null && !dbConn.isClosed()){
+                dbConn.commit();
+            }
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+
         DBUtil.closeDBResources(resultSet,statement,dbConn);
         parameterValues = null;
     }
