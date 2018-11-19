@@ -18,6 +18,7 @@
 
 package com.dtstack.flinkx.rdb.inputformat;
 
+import com.dtstack.flinkx.enums.EDatabaseType;
 import com.dtstack.flinkx.inputformat.RichInputFormat;
 import com.dtstack.flinkx.rdb.DataSource;
 import com.dtstack.flinkx.rdb.DatabaseInterface;
@@ -63,8 +64,6 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
 
     protected List<DataSource> sourceList;
 
-    private transient DataSource currentSource;
-
     private transient int sourceIndex;
 
     private transient Connection currentConn;
@@ -72,6 +71,8 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
     private transient Statement currentStatement;
 
     private transient ResultSet currentResultSet;
+
+    private transient Row currentRecord;
 
     protected String username;
 
@@ -104,7 +105,6 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
         try{
             ClassUtil.forName(driverName, getClass().getClassLoader());
             sourceList = ((DistributedJdbcInputSplit) inputSplit).getSourceList();
-            openNextSource();
         }catch (Exception e){
             throw new IllegalArgumentException("open() failed." + e.getMessage(), e);
         }
@@ -113,22 +113,10 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
     }
 
     private void openNextSource() throws SQLException{
-        for (DataSource dataSource : sourceList) {
-            if(!dataSource.isFinished()){
-                sourceIndex = sourceList.indexOf(dataSource);
-                currentSource = dataSource;
-                break;
-            }
-        }
-
-        if (currentSource == null){
-            hasNext = false;
-            return;
-        }
-
+        DataSource currentSource = sourceList.get(sourceIndex);
         currentConn = DBUtil.getConnection(currentSource.getJdbcUrl(), currentSource.getUserName(), currentSource.getPassword());
         currentConn.setAutoCommit(false);
-        String queryTemplate = DBUtil.getQuerySql(databaseInterface,currentSource.getTable(),column,splitKey,where,currentSource.isSplitByKey());
+        String queryTemplate = DBUtil.getQuerySql(databaseInterface, currentSource.getTable(),column,splitKey,where, currentSource.isSplitByKey());
         currentStatement = currentConn.createStatement(resultSetType, resultSetConcurrency);
 
         if (currentSource.isSplitByKey()){
@@ -142,7 +130,7 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
             }
         }
 
-        if(databaseInterface.getDatabaseType().equals("mysql")){
+        if(databaseInterface.getDatabaseType() == EDatabaseType.MySQL){
             currentStatement.setFetchSize(Integer.MIN_VALUE);
         } else {
             currentStatement.setFetchSize(fetchSize);
@@ -150,29 +138,35 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
 
         currentStatement.setQueryTimeout(queryTimeOut);
         currentResultSet = currentStatement.executeQuery(queryTemplate);
-        hasNext = currentResultSet.next();
         columnCount = currentResultSet.getMetaData().getColumnCount();
 
         if(descColumnTypeList == null) {
             descColumnTypeList = DBUtil.analyzeTable(currentSource.getJdbcUrl(), currentSource.getUserName(),
-                    currentSource.getPassword(),databaseInterface,currentSource.getTable(),column);
+                    currentSource.getPassword(),databaseInterface, currentSource.getTable(),column);
         }
 
         LOG.info("open source:" + currentSource.getJdbcUrl() + ",table:" + currentSource.getTable());
     }
 
-    @Override
-    protected Row nextRecordInternal(Row row) throws IOException {
-        row = new Row(columnCount);
+    private boolean readNextRecord() throws IOException{
         try{
-            if(!hasNext){
-                return null;
+            if(currentConn == null){
+                openNextSource();
             }
 
-            DBUtil.getRow(databaseInterface.getDatabaseType(),row,descColumnTypeList,currentResultSet,typeConverter);
-
             hasNext = currentResultSet.next();
-            return row;
+            if (hasNext){
+                currentRecord = new Row(columnCount);
+                DBUtil.getRow(databaseInterface.getDatabaseType(),currentRecord,descColumnTypeList,currentResultSet,typeConverter);
+            } else {
+                if(sourceIndex + 1 < sourceList.size()){
+                    closeCurrentSource();
+                    sourceIndex++;
+                    return readNextRecord();
+                }
+            }
+
+            return !hasNext;
         }catch (SQLException se) {
             throw new IOException("Couldn't read data - " + se.getMessage(), se);
         } catch (Exception npe) {
@@ -180,25 +174,29 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
         }
     }
 
+    @Override
+    protected Row nextRecordInternal(Row row) throws IOException {
+        return currentRecord;
+    }
+
     private void closeCurrentSource(){
         try {
-            if(currentConn != null){
+            if(currentConn != null && !currentConn.isClosed()){
                 currentConn.commit();
             }
+
+            DBUtil.closeDBResources(currentResultSet,currentStatement,currentConn);
+            currentConn = null;
+            currentStatement = null;
+            currentResultSet = null;
         } catch (Throwable e) {
             throw new RuntimeException(e);
-        }
-
-        DBUtil.closeDBResources(currentResultSet,currentStatement,currentConn);
-        if(sourceList.size() >= sourceIndex + 1){
-            sourceList.get(sourceIndex).setFinished(true);
-            currentSource = null;
         }
     }
 
     @Override
     protected void closeInternal() throws IOException {
-        closeCurrentSource();
+
     }
 
     @Override
@@ -247,16 +245,7 @@ public class DistributedJdbcInputFormat extends RichInputFormat {
 
     @Override
     public boolean reachedEnd() throws IOException {
-        if (!hasNext){
-            try{
-                closeCurrentSource();
-                openNextSource();
-            }catch (SQLException e){
-                throw new IOException("open source error:" + currentSource.getJdbcUrl(),e);
-            }
-        }
-
-        return !hasNext;
+        return readNextRecord();
     }
 
     public <T> List<T> deepCopyList(List<T> src) throws IOException{
