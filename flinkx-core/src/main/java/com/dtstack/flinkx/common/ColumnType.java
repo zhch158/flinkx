@@ -26,8 +26,8 @@ package com.dtstack.flinkx.common;
  * @author huyifan.zju@163.com
  */
 public enum ColumnType {
-    STRING, VARCHAR, CHAR,
-    INT, MEDIUMINT, TINYINT, DATETIME, SMALLINT, BIGINT,
+    STRING, VARCHAR, CHAR,TEXT,KEYWORD,
+    INT, MEDIUMINT, TINYINT, DATETIME, SMALLINT, BIGINT,INTEGER,
     DOUBLE, FLOAT,
     BOOLEAN,
     DATE, TIMESTAMP, DECIMAL;
