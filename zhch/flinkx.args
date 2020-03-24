@@ -1,0 +1,1 @@
+-mode local -job f:/workspace/repository.git/flinkx/zhch/mysql_to_mysql.json -pluginRoot f:/workspace/repository.git/flinkx/plugins/ -confProp "{\"flink.checkpoint.interval\":60000, \"flink.checkpoint.stateBackend\":\"f:/workspace/repository.git/flinkx/zhch/flink_checkpoint/\"}"
