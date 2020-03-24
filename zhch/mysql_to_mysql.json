@@ -2,13 +2,19 @@
     "job": {
         "setting": {
             "speed": {
-                 "channel": 3,
+                 "channel": 1,
                  "bytes": 0
             },
             "errorLimit": {
                 "record": 10000,
-                "percentage": 100
-            }
+                "percentage": 10
+            },
+            "restore": {
+		        "maxRowNumForCheckpoint": 1000,
+		        "isRestore": false, 
+		        "restoreColumnName": "", 
+		        "restoreColumnIndex": 0
+		     }                                          
         },
         "content": [
             {
@@ -41,16 +47,17 @@
                "writer": {
                     "name": "mysqlwriter",
                     "parameter": {
-                        "writeMode": "insert",
+                        "writeMode": "replace",
                         "username": "root",
                         "password": "yusys",
                         "column": [
+                        	"id",
                             "月份", 
                             "工号", 
                             "姓名",
 							"人天数"
                         ],
-                        "batchSize": 1,
+                        "batchSize": 1024,
                         "session": [
                             "set session sql_mode='ANSI'"
                         ],
